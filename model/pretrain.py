@@ -62,6 +62,27 @@ class UniterForPretraining(UniterPreTrainedModel):
         self.itm_output = nn.Linear(config.hidden_size, 2)
         self.apply(self.init_weights)
 
+    def init_word_embeddings(self, num_special_tokens):
+        orig_word_num = self.uniter.embeddings.word_embeddings.weight.size(0)
+        new_emb = nn.Embedding(
+            orig_word_num + num_special_tokens, self.uniter.config.hidden_size)
+        new_emb.apply(self.init_weights)
+        emb = self.uniter.embeddings.word_embeddings.weight.data
+        new_emb.weight.data[:orig_word_num, :].copy_(emb)
+        self.uniter.embeddings.word_embeddings = new_emb
+        self.cls = BertOnlyMLMHead(self.uniter.config, self.uniter.embeddings.word_embeddings.weight)   
+
+    def init_type_embedding(self, num_type_ids):
+        new_emb = nn.Embedding(num_type_ids, self.uniter.config.hidden_size)
+        new_emb.apply(self.init_weights)
+        for i in [0, 1]:
+            emb = self.uniter.embeddings.token_type_embeddings.weight.data[i, :]
+            new_emb.weight.data[i, :].copy_(emb)
+        emb = self.uniter.embeddings.token_type_embeddings.weight.data[0, :]
+        new_emb.weight.data[2, :].copy_(emb)
+        new_emb.weight.data[3, :].copy_(emb)
+        self.uniter.embeddings.token_type_embeddings = new_emb
+
     def forward(self, batch, task, compute_loss=True):
         batch = defaultdict(lambda: None, batch)
         input_ids = batch['input_ids']

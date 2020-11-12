@@ -41,6 +41,7 @@ class TokenBucketSampler(Sampler):
                 if (max_len * (len(batch_indices) + self._size_mul)
                         > self._max_tok):
                     if not batch_indices:
+                        print(f"maxlen {max_len}, size_mul {self._size_mul}, max_tok {self._max_tok}, batchidx {len(batch_indices)}")
                         raise ValueError(
                             "max_tokens too small / max_seq_len too long")
                     assert len(batch_indices) % self._size_mul == 0

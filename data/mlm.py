@@ -10,8 +10,8 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from toolz.sandbox import unzip
 
-from .data import (DetectFeatTxtTokDataset, TxtTokLmdb,
-                   pad_tensors, get_gather_index)
+from .data import (DetectFeatTxtTokDataset, VcrQarDetectFeatTxtTokDataset,
+                   TxtTokLmdb, pad_tensors, get_gather_index)
 
 
 def random_word(tokens, vocab_range, mask):
@@ -54,7 +54,7 @@ def random_word(tokens, vocab_range, mask):
     return tokens, output_label
 
 
-class MlmDataset(DetectFeatTxtTokDataset):
+class MlmDataset(VcrQarDetectFeatTxtTokDataset):
     def __init__(self, txt_db, img_db):
         assert isinstance(txt_db, TxtTokLmdb)
         super().__init__(txt_db, img_db)
@@ -72,11 +72,11 @@ class MlmDataset(DetectFeatTxtTokDataset):
         example = super().__getitem__(i)
 
         # text input
-        input_ids, txt_labels = self.create_mlm_io(example['input_ids'])
+        input_ids, txt_labels = self.create_mlm_io(self._get_input_ids(example))
 
         # img input
         img_feat, img_pos_feat, num_bb = self._get_img_feat(
-            example['img_fname'])
+            example['img_fname'][1])
 
         attn_masks = torch.ones(len(input_ids) + num_bb, dtype=torch.long)
 

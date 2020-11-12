@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation.
 Licensed under the MIT license.
 
 """
-from .data import (TxtTokLmdb, DetectFeatLmdb,
+from .data import (TxtTokLmdb, DetectFeatLmdb, VcrQarDetectFeatTxtTokDataset,
                    ImageLmdbGroup, ConcatDatasetWithLens)
 from .sampler import TokenBucketSampler
 from .loader import PrefetchLoader, MetaLoader

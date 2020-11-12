@@ -6,6 +6,7 @@ Dataset interfaces
 """
 from collections import defaultdict
 from contextlib import contextmanager
+import copy
 import io
 import json
 from os.path import exists
@@ -178,11 +179,11 @@ class TxtLmdb(object):
 class TxtTokLmdb(object):
     def __init__(self, db_dir, max_txt_len=60):
         if max_txt_len == -1:
-            self.id2len = json.load(open(f'{db_dir}/id2len.json'))
+            self.id2len = json.load(open(f'{db_dir}/id2len_qa.json'))
         else:
             self.id2len = {
                 id_: len_
-                for id_, len_ in json.load(open(f'{db_dir}/id2len.json')
+                for id_, len_ in json.load(open(f'{db_dir}/id2len_qa.json')
                                            ).items()
                 if len_ <= max_txt_len
             }
@@ -234,7 +235,7 @@ class DetectFeatTxtTokDataset(Dataset):
         txt_lens, self.ids = get_ids_and_lens(txt_db)
 
         txt2img = txt_db.txt2img
-        self.lens = [tl + self.img_db.name2nbb[txt2img[id_]]
+        self.lens = [tl + self.img_db.name2nbb[txt2img[id_][1]]
                      for tl, id_ in zip(txt_lens, self.ids)]
 
     def __len__(self):
@@ -250,6 +251,27 @@ class DetectFeatTxtTokDataset(Dataset):
         img_bb = torch.cat([bb, bb[:, 4:5]*bb[:, 5:]], dim=-1)
         num_bb = img_feat.size(0)
         return img_feat, img_bb, num_bb
+
+
+class VcrQarDetectFeatTxtTokDataset(DetectFeatTxtTokDataset):
+    def __init__(self, txt_db, img_db):
+        super().__init__(txt_db, img_db)
+
+    def _get_input_ids(self, txt_dump, task="qa"):
+        question_ids = txt_dump['input_ids']
+        answer_ids = txt_dump['input_ids_as']
+        answer_label = txt_dump['qa_target']
+        answer_gt_id = [self.txt_db.sep] + copy.deepcopy(answer_ids[answer_label])
+        input_ids = question_ids + answer_gt_id
+
+        if task == "qar":
+            assert answer_label >= 0, "answer_label < 0"
+            rational_ids = txt_dump['input_ids_rs']
+            rational_label= txt_dump['qar_target']
+            rational_gt_ids = [self.txt_db.sep] + copy.deepcopy(rational_ids[rational_label])
+            input_ids += rational_gt_ids
+
+        return input_ids
 
 
 def pad_tensors(tensors, lens=None, pad=0):
