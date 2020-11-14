@@ -10,8 +10,8 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from toolz.sandbox import unzip
 
-from .data import (DetectFeatTxtTokDataset, TxtTokLmdb,
-                   pad_tensors, get_gather_index)
+from .data import (DetectFeatTxtTokDataset, VcrDetectFeatTxtTokDataset,
+                   TxtTokLmdb, pad_tensors, get_gather_index)
 
 
 def random_word(tokens, vocab_range, mask):
@@ -80,6 +80,38 @@ class MlmDataset(DetectFeatTxtTokDataset):
 
         attn_masks = torch.ones(len(input_ids) + num_bb, dtype=torch.long)
 
+        return input_ids, img_feat, img_pos_feat, attn_masks, txt_labels
+
+    def create_mlm_io(self, input_ids):
+        input_ids, txt_labels = random_word(input_ids,
+                                            self.txt_db.v_range,
+                                            self.txt_db.mask)
+        input_ids = torch.tensor([self.txt_db.cls_]
+                                 + input_ids
+                                 + [self.txt_db.sep])
+        txt_labels = torch.tensor([-1] + txt_labels + [-1])
+        return input_ids, txt_labels
+
+
+class MlmVcrDataset(VcrPretrainingDataset):
+    '''
+    MLM on VCR tokens/imgs
+    '''
+    def __init__(self, txt_db, img_db_gt=None, img_db=None):
+        assert not (img_db_gt is None and img_db is None),\
+            "img_db_gt and img_db cannot all be None"
+        assert isinstance(txt_db, VcrTxtTokLmdb)
+        assert img_db_gt is None or isinstance(img_db_gt, DetectFeatLmdb)
+        assert img_db is None or isinstance(img_db, DetectFeatLmdb)
+        super().__init__(txt_db, img_db_gt, img_db)
+
+    def __getitem__(self, i):
+        example = super().__getitem__(i)
+
+        input_ids, txt_labels = self.create_mlm_io(self._get_input_ids(example))
+        img_feat, img_pos_feat, num_bb = self._get_img_feat(example['img_fname'][1])
+
+        attn_masks = torch.ones(len(input_ids) + num_bb, dtype=torch.long)
         return input_ids, img_feat, img_pos_feat, attn_masks, txt_labels
 
     def create_mlm_io(self, input_ids):

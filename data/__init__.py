@@ -22,5 +22,5 @@ from .itm import (TokenBucketSamplerForItm, ItmDataset,
                   itm_rank_hn_collate)
 from .mlm import MlmDataset, mlm_collate
 from .mrm import MrfrDataset, MrcDataset, mrfr_collate, mrc_collate
-from .vcr import (VcrTxtTokLmdb, VcrDataset, VcrEvalDataset,
+from .vcr import (VcrTxtTokLmdb, VcrPretrainingDataset, VcrDataset, VcrEvalDataset,
                   vcr_collate, vcr_eval_collate)

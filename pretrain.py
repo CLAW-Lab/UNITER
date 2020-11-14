@@ -219,6 +219,8 @@ def main(opts):
     model = UniterForPretraining.from_pretrained(
         opts.model_config, checkpoint,
         img_dim=IMG_DIM, img_label_dim=IMG_LABEL_DIM)
+    model.init_word_embeddings(opts.num_special_tokens)
+    model.init_type_embedding(opts.num_types)
     model.to(device)
     model.train()
     # make sure every process has same model parameters in the beginning

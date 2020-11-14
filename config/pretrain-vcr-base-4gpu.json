@@ -1,7 +1,7 @@
 {
     "model_config": "/src/config/uniter-base.json",
-    "checkpoint": "/pretrain/uniter-base-init.pt",
-    "output_dir": "/storage/pretrain/vcr",
+    "checkpoint": "/pretrain/uniter-base.pt",
+    "output_dir": "/storage/self-supervised-finetuning/vcr",
     "mrm_prob": 0.15,
     "max_txt_len": 60,
     "conf_th": 0.2,
@@ -30,8 +30,8 @@
     "train_datasets": [
         {
             "name": "vcr",
-            "db": ["/txt/vcr_train.db/"],
-            "img": ["/img/vcr_train/",],
+            "db": ["/txt/vcr_train.db"],
+            "img": ["/img/vcr_train"],
             "img_gt": ["/img/vcr_gt_train"],
             "tasks": [
                 "mlm",
@@ -43,11 +43,11 @@
                 4,
                 4
             ]
-        },
+        }
     ],
     "val_datasets": [
         {
-            "name": "coco",
+            "name": "vcr",
             "db": ["/txt/vcr_val.db/"],
             "img": ["/img/vcr_val/"],
             "tasks": [
@@ -55,6 +55,6 @@
                 "mrfr",
                 "mrckl"
             ]
-        },
+        }
     ]
 }
