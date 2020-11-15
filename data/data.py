@@ -264,7 +264,7 @@ class VcrQarDetectFeatTxtTokDataset(DetectFeatTxtTokDataset):
         answer_gt_id = [self.txt_db.sep] + copy.deepcopy(answer_ids[answer_label])
         input_ids = question_ids + answer_gt_id
 
-        if task == "qa":
+        if task == "qar":
             assert answer_label >= 0, "answer_label < 0"
             rational_ids = txt_dump['input_ids_rs']
             rational_label= txt_dump['qar_target']
