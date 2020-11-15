@@ -76,7 +76,7 @@ class MlmDataset(VcrQarDetectFeatTxtTokDataset):
 
         # img input
         img_feat, img_pos_feat, num_bb = self._get_img_feat(
-            example['img_fname'])
+            example['img_fname'][1])
 
         attn_masks = torch.ones(len(input_ids) + num_bb, dtype=torch.long)
 

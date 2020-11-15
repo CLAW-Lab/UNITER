@@ -6,6 +6,7 @@ Dataset interfaces
 """
 from collections import defaultdict
 from contextlib import contextmanager
+import copy
 import io
 import json
 from os.path import exists
@@ -234,7 +235,7 @@ class DetectFeatTxtTokDataset(Dataset):
         txt_lens, self.ids = get_ids_and_lens(txt_db)
 
         txt2img = txt_db.txt2img
-        self.lens = [tl + self.img_db.name2nbb[txt2img[id_]]
+        self.lens = [tl + self.img_db.name2nbb[txt2img[id_][1]]
                      for tl, id_ in zip(txt_lens, self.ids)]
 
     def __len__(self):
@@ -254,13 +255,13 @@ class DetectFeatTxtTokDataset(Dataset):
 
 class VcrQarDetectFeatTxtTokDataset(DetectFeatTxtTokDataset):
     def __init__(self, txt_db, img_db):
-        super.().__init__(txt_db, img_db)
+        super().__init__(txt_db, img_db)
 
     def _get_input_ids(self, txt_dump, task="qa"):
         question_ids = txt_dump['input_ids']
         answer_ids = txt_dump['input_ids_as']
         answer_label = txt_dump['qa_target']
-        answer_gt_ids = [self.txt_db.sep] + copy.deepcopy(answer_ids[answer_label])
+        answer_gt_id = [self.txt_db.sep] + copy.deepcopy(answer_ids[answer_label])
         input_ids = question_ids + answer_gt_id
 
         if task == "qa":
