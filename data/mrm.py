@@ -9,7 +9,7 @@ import random
 import torch
 from torch.nn.utils.rnn import pad_sequence
 from toolz.sandbox import unzip
-from .data import DetectFeatTxtTokDataset, VcrDetectFeatTxtTokDataset, pad_tensors, get_gather_index
+from .data import DetectFeatTxtTokDataset, VcrQarDetectFeatTxtTokDataset, pad_tensors, get_gather_index
 
 
 def _get_img_mask(mask_prob, num_bb):
@@ -41,7 +41,7 @@ def _mask_img_feat(img_feat, img_masks):
     return img_feat_masked
 
 
-class MrfrDataset(VcrDetectFeatTxtTokDataset):
+class MrfrDataset(VcrQarDetectFeatTxtTokDataset):
     def __init__(self, mask_prob, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.mask_prob = mask_prob
@@ -128,7 +128,7 @@ def _get_targets(img_masks, img_soft_label):
     return label_targets
 
 
-class MrcDataset(VcrDetectFeatTxtTokDataset):
+class MrcDataset(VcrQarDetectFeatTxtTokDataset):
     def __init__(self, mask_prob, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.mask_prob = mask_prob

@@ -178,11 +178,11 @@ class TxtLmdb(object):
 class TxtTokLmdb(object):
     def __init__(self, db_dir, max_txt_len=60):
         if max_txt_len == -1:
-            self.id2len = json.load(open(f'{db_dir}/id2len_qar.json'))
+            self.id2len = json.load(open(f'{db_dir}/id2len_qa.json'))
         else:
             self.id2len = {
                 id_: len_
-                for id_, len_ in json.load(open(f'{db_dir}/id2len_qar.json')
+                for id_, len_ in json.load(open(f'{db_dir}/id2len_qa.json')
                                            ).items()
                 if len_ <= max_txt_len
             }
@@ -256,14 +256,14 @@ class VcrQarDetectFeatTxtTokDataset(DetectFeatTxtTokDataset):
     def __init__(self, txt_db, img_db):
         super.().__init__(txt_db, img_db)
 
-    def _get_input_ids(self, txt_dump, task):
+    def _get_input_ids(self, txt_dump, task="qa"):
         question_ids = txt_dump['input_ids']
         answer_ids = txt_dump['input_ids_as']
         answer_label = txt_dump['qa_target']
         answer_gt_ids = [self.txt_db.sep] + copy.deepcopy(answer_ids[answer_label])
         input_ids = question_ids + answer_gt_id
 
-        if task == "qar":
+        if task == "qa":
             assert answer_label >= 0, "answer_label < 0"
             rational_ids = txt_dump['input_ids_rs']
             rational_label= txt_dump['qar_target']
