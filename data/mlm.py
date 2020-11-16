@@ -10,6 +10,8 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from toolz.sandbox import unzip
 
+from pytorch_pretrained_bert import BertTokenizer
+
 from .data import (DetectFeatTxtTokDataset, VcrDetectFeatTxtTokDataset,
                    TxtTokLmdb, VcrTxtTokLmdb, pad_tensors, get_gather_index)
 
@@ -112,7 +114,13 @@ class MlmVcrDataset(VcrDetectFeatTxtTokDataset):
 
         # text input
         input_ids, txt_labels = self.create_mlm_io(self._get_input_ids(example))
-
+        # print("annot id", example['annot_id'])
+        # print("input tkns", example['toked_question'])
+        # print("answer ids", example['toked_as'][example['answer_label']])
+        #
+        # print("input ids", example['input_ids'])
+        # print("answer ids", example['input_ids_as'][example['answer_label']])
+        # print("retrieved ids", input_ids, "\n")
         # img input
         img_feat, img_pos_feat, num_bb = self._get_img_feat(
             example['img_fname'][0], example['img_fname'][1])

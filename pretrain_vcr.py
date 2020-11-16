@@ -12,6 +12,8 @@ import os
 from os.path import exists, join
 from time import time
 
+
+
 import torch
 from torch.utils.data import DataLoader
 from torch.nn import functional as F
@@ -179,9 +181,10 @@ def main(opts):
         opts.train_datasets, True, opts)
     val_dataloaders, _ = create_dataloaders(
         opts.val_datasets, False, opts, all_img_dbs)
-    meta_loader = MetaLoader(train_dataloaders,
-                             accum_steps=opts.gradient_accumulation_steps,
-                             distributed=n_gpu > 1)
+    meta_loader = MetaLoader(
+        train_dataloaders,
+        accum_steps=opts.gradient_accumulation_steps,
+        distributed=n_gpu > 1)
     meta_loader = PrefetchLoader(meta_loader)
 
     # Prepare model
@@ -190,8 +193,10 @@ def main(opts):
     else:
         checkpoint = {}
     model = UniterForPretraining.from_pretrained(
-        opts.model_config, checkpoint,
-        img_dim=IMG_DIM, img_label_dim=IMG_LABEL_DIM)
+        opts.model_config,
+        checkpoint,
+        img_dim=IMG_DIM,
+        img_label_dim=IMG_LABEL_DIM)
     model.init_word_embeddings(opts.num_special_tokens)
     model.to(device)
     model.train()
@@ -286,8 +291,8 @@ def main(opts):
                     in_per_sec = int(tot_in / (time()-start))
                     tot_l = sum(all_gather_list(n_loss_units[t]))
                     l_per_sec = int(tot_l / (time()-start))
-                    LOGGER.info(f'{t}: {tot_ex} examples trained at '
-                                f'{ex_per_sec} ex/s. Loss: ')
+                    LOGGER.info(f'{t}: {tot_ex} ex trained at '
+                                f'{ex_per_sec} ex/s. Loss: {l_per_sec}')
                     TB_LOGGER.add_scalar(f'perf/{t}_ex_per_s', ex_per_sec,
                                          global_step)
                     TB_LOGGER.add_scalar(f'perf/{t}_in_per_s', in_per_sec,

@@ -3,7 +3,7 @@
     "train_img_dbs": ["/img/vcr_gt_train/;/img/vcr_train/"],
     "val_txt_db": "/txt/vcr_val.db/",
     "val_img_db": "/img/vcr_gt_val/;/img/vcr_val/",
-    "checkpoint": "/storage/self-supervised-finetuning/vcr-extended-pt/ckpt/model_step_60000.pt",
+    "checkpoint": "/storage/self-supervised-finetuning/vcr-extended-pt/ckpt/model_step_5000.pt",
     "checkpoint_from": "pretrain",
     "model_config": "/src/config/uniter-base-vcr.json",
     "output_dir": "/storage/self-supervised-finetuning/vcr-ssft-test",
