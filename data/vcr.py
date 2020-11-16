@@ -10,87 +10,10 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from toolz.sandbox import unzip
 from cytoolz import concat
-from .data import (DetectFeatTxtTokDataset, TxtTokLmdb, DetectFeatLmdb,
+from .data import (DetectFeatTxtTokDataset,VcrTxtTokLmdb,
+                   VcrDetectFeatTxtTokDataset,  TxtTokLmdb, DetectFeatLmdb,
                    TxtLmdb, get_ids_and_lens, pad_tensors,
                    get_gather_index)
-
-
-class VcrTxtTokLmdb(TxtTokLmdb):
-    def __init__(self, db_dir, max_txt_len=120, task="qa,qar"):
-        assert task == "qa" or task == "qar" or task == "qa,qar",\
-            "VCR only support the following tasks: 'qa', 'qar' or 'qa,qar'"
-        self.task = task
-        if task == "qa,qar":
-            id2len_task = "qar"
-        else:
-            id2len_task = task
-        if max_txt_len == -1:
-            self.id2len = json.load(
-                open(f'{db_dir}/id2len_{id2len_task}.json'))
-        else:
-            self.id2len = {
-                id_: len_
-                for id_, len_ in json.load(
-                    open(f'{db_dir}/id2len_{id2len_task}.json')
-                    ).items()
-                if len_ <= max_txt_len
-            }
-        
-        self.db_dir = db_dir
-        self.db = TxtLmdb(db_dir, readonly=True)
-        meta = json.load(open(f'{db_dir}/meta.json', 'r'))
-        self.cls_ = meta['CLS']
-        self.sep = meta['SEP']
-        self.mask = meta['MASK']
-        self.v_range = meta['v_range']
-
-
-class VcrDetectFeatTxtTokDataset(DetectFeatTxtTokDataset):
-    def __init__(self, txt_db, img_db_gt=None, img_db=None):
-        assert not (img_db_gt is None and img_db is None),\
-            "img_db_gt and img_db cannot all be None"
-        assert isinstance(txt_db, VcrTxtTokLmdb)
-        assert img_db_gt is None or isinstance(img_db_gt, DetectFeatLmdb)
-        assert img_db is None or isinstance(img_db, DetectFeatLmdb)
-        self.txt_db = txt_db
-        self.img_db = img_db
-        self.img_db_gt = img_db_gt
-        self.task = self.txt_db.task
-        txt_lens, self.ids = get_ids_and_lens(txt_db)
-
-        txt2img = txt_db.txt2img
-
-        if self.img_db and self.img_db_gt:
-            self.lens = [tl+self.img_db_gt.name2nbb[txt2img[id_][0]] +
-                         self.img_db.name2nbb[txt2img[id_][1]]
-                         for tl, id_ in zip(txt_lens, self.ids)]
-        elif self.img_db:
-            self.lens = [tl+self.img_db.name2nbb[txt2img[id_][1]]
-                         for tl, id_ in zip(txt_lens, self.ids)]
-        else:
-            self.lens = [tl+self.img_db_gt.name2nbb[txt2img[id_][0]]
-                         for tl, id_ in zip(txt_lens, self.ids)]
-
-    def _get_img_feat(self, fname_gt, fname):
-        if self.img_db and self.img_db_gt:
-            img_feat_gt, bb_gt = self.img_db_gt[fname_gt]
-            img_bb_gt = torch.cat([bb_gt, bb_gt[:, 4:5]*bb_gt[:, 5:]], dim=-1)
-
-            img_feat, bb = self.img_db[fname]
-            img_bb = torch.cat([bb, bb[:, 4:5]*bb[:, 5:]], dim=-1)
-
-            img_feat = torch.cat([img_feat_gt, img_feat], dim=0)
-            img_bb = torch.cat([img_bb_gt, img_bb], dim=0)
-            num_bb = img_feat.size(0)
-        elif self.img_db:
-            img_feat, bb = self.img_db[fname]
-            img_bb = torch.cat([bb, bb[:, 4:5]*bb[:, 5:]], dim=-1)
-            num_bb = img_feat.size(0)
-        elif self.img_db_gt:
-            img_feat, bb = self.img_db_gt[fname_gt]
-            img_bb = torch.cat([bb, bb[:, 4:5]*bb[:, 5:]], dim=-1)
-            num_bb = img_feat.size(0)
-        return img_feat, img_bb, num_bb
 
 
 class VcrDataset(VcrDetectFeatTxtTokDataset):

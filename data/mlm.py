@@ -10,8 +10,8 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from toolz.sandbox import unzip
 
-from .data import (DetectFeatTxtTokDataset, VcrQarDetectFeatTxtTokDataset,
-                   TxtTokLmdb, pad_tensors, get_gather_index)
+from .data import (DetectFeatTxtTokDataset, VcrDetectFeatTxtTokDataset,
+                   TxtTokLmdb, VcrTxtTokLmdb, pad_tensors, get_gather_index)
 
 
 def random_word(tokens, vocab_range, mask):
@@ -54,7 +54,7 @@ def random_word(tokens, vocab_range, mask):
     return tokens, output_label
 
 
-class MlmDataset(VcrQarDetectFeatTxtTokDataset):
+class MlmDataset(DetectFeatTxtTokDataset):
     def __init__(self, txt_db, img_db):
         assert isinstance(txt_db, TxtTokLmdb)
         super().__init__(txt_db, img_db)
@@ -75,8 +75,47 @@ class MlmDataset(VcrQarDetectFeatTxtTokDataset):
         input_ids, txt_labels = self.create_mlm_io(self._get_input_ids(example))
 
         # img input
+        img_feat, img_pos_feat, num_bb = self._get_img_feat(example['img_fname'])
+
+        attn_masks = torch.ones(len(input_ids) + num_bb, dtype=torch.long)
+
+        return input_ids, img_feat, img_pos_feat, attn_masks, txt_labels
+
+    def create_mlm_io(self, input_ids):
+        input_ids, txt_labels = random_word(input_ids,
+                                            self.txt_db.v_range,
+                                            self.txt_db.mask)
+        input_ids = torch.tensor([self.txt_db.cls_]
+                                 + input_ids
+                                 + [self.txt_db.sep])
+        txt_labels = torch.tensor([-1] + txt_labels + [-1])
+        return input_ids, txt_labels
+
+
+
+class MlmVcrDataset(VcrDetectFeatTxtTokDataset):
+    def __init__(self, txt_db, img_db_gt, img_db):
+        assert isinstance(txt_db, VcrTxtTokLmdb)
+        super().__init__(txt_db, img_db_gt, img_db)
+
+    def __getitem__(self, i):
+        """
+        Return:
+        - input_ids    : (L, ), i.e., [cls, wd, wd, ..., sep, 0, 0], 0s padded
+        - img_feat     : (num_bb, d)
+        - img_pos_feat : (num_bb, 7)
+        - attn_masks   : (L + num_bb, ), ie., [1, 1, ..., 0, 0, 1, 1]
+        - txt_labels   : (L, ), [-1, -1, wid, -1, -1, -1]
+        0's padded so that (L + num_bb) % 8 == 0
+        """
+        example = super().__getitem__(i)
+
+        # text input
+        input_ids, txt_labels = self.create_mlm_io(self._get_input_ids(example))
+
+        # img input
         img_feat, img_pos_feat, num_bb = self._get_img_feat(
-            example['img_fname'][1])
+            example['img_fname'][0], example['img_fname'][1])
 
         attn_masks = torch.ones(len(input_ids) + num_bb, dtype=torch.long)
 

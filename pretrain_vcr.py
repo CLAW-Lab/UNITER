@@ -22,12 +22,11 @@ from horovod import torch as hvd
 
 from tqdm import tqdm
 
-from data import (TokenBucketSampler, TokenBucketSamplerForItm,
-                  MetaLoader, PrefetchLoader,
-                  TxtTokLmdb, ImageLmdbGroup, ConcatDatasetWithLens,
-                  MlmDataset, MrfrDataset, MrcDataset,
-                  mlm_collate, mrfr_collate, mrc_collate,
-                  ItmDataset, itm_collate, itm_ot_collate)
+from data import (TokenBucketSampler,
+                  MetaLoader, PrefetchLoader,DetectFeatLmdb,
+                  VcrTxtTokLmdb, ImageLmdbGroup, ConcatDatasetWithLens,
+                  MlmVcrDataset, MrfrVcrDataset, MrcVcrDataset,
+                  mlm_collate, mrfr_collate, mrc_collate)
 
 from model.pretrain import UniterForPretraining
 from optim import get_lr_sched
@@ -53,64 +52,56 @@ def build_dataloader(dataset, collate_fn, is_train, opts):
                         collate_fn=collate_fn)
     return loader
 
-
-def build_dataloader_itm(dataset, collate_fn, is_train, opts):
-    if is_train:
-        batch_size = opts.train_batch_size
-    else:
-        batch_size = opts.val_batch_size
-    sampler = TokenBucketSamplerForItm(
-        dataset, bucket_size=BUCKET_SIZE,
-        batch_size=batch_size, droplast=is_train)
-    loader = DataLoader(dataset, batch_sampler=sampler,
-                        num_workers=opts.n_workers, pin_memory=opts.pin_mem,
-                        collate_fn=collate_fn)
-    return loader
-
-
-def build_mlm_dataset(txt_db, img_db, is_train, opts):
+def build_mlm_dataset(txt_db, img_db_gt, img_db, is_train, opts):
+    print(txt_db, img_db_gt, img_db)
     if is_train:
         collate_fn = mlm_collate
-        datasets = [MlmDataset(t, i) for t, i in zip(txt_db, img_db)]
-        dataset = ConcatDatasetWithLens(datasets)
+        # print(params)
+        dataset = MlmVcrDataset(txt_db, img_db_gt, img_db)
     else:
         collate_fn = mlm_collate
-        dataset = MlmDataset(txt_db, img_db)
+        dataset = MlmVcrDataset(txt_db, img_db_gt, img_db)
 
     return dataset, collate_fn
 
 
-def build_mrfr_dataset(txt_db, img_db, is_train, opts):
+def build_mrfr_dataset(txt_db, img_db_gt, img_db, is_train, opts):
     if is_train:
-        datasets = [MrfrDataset(opts.mrm_prob, t, i)
-                    for t, i in zip(txt_db, img_db)]
-        dataset = ConcatDatasetWithLens(datasets)
+        dataset = MrfrVcrDataset(opts.mrm_prob, txt_db, img_db_gt, img_db)
     else:
-        dataset = MrfrDataset(opts.mrm_prob, txt_db, img_db)
+        dataset = MrfrVcrDataset(opts.mrm_prob, txt_db, img_db_gt, img_db)
 
     return dataset, mrfr_collate
 
 
-def build_mrc_dataset(txt_db, img_db, is_train, opts):
+def build_mrc_dataset(txt_db, img_db_gt, img_db, is_train, opts):
     if is_train:
-        datasets = [MrcDataset(opts.mrm_prob, t, i)
-                    for t, i in zip(txt_db, img_db)]
-        dataset = ConcatDatasetWithLens(datasets)
+        dataset = MrcVcrDataset(opts.mrm_prob, txt_db, img_db_gt, img_db)
     else:
-        dataset = MrcDataset(opts.mrm_prob, txt_db, img_db)
+        dataset = MrcVcrDataset(opts.mrm_prob, txt_db,img_db_gt,  img_db)
 
     return dataset, mrc_collate
 
 
-def build_itm_dataset(txt_db, img_db, is_train, opts):
-    if is_train:
-        datasets = [ItmDataset(t, i, opts.itm_neg_prob)
-                    for t, i in zip(txt_db, img_db)]
-        dataset = ConcatDatasetWithLens(datasets)
+def load_img_feat(db_list, all_img_dbs, opts):
+    db_ = db_list.split(";")
+    assert len(db_) <= 2, "More than two img_dbs found"
+    gt_db_path, db_path = "", ""
+    for d in db_:
+        if "gt" in d:
+            gt_db_path = d
+        else:
+            db_path = d
+    if gt_db_path != "":
+        img_db_gt = DetectFeatLmdb(
+            gt_db_path, -1, opts.max_bb, opts.min_bb, 100,
+            opts.compressed_db)
+        all_img_dbs.path2imgdb[gt_db_path] = img_db_gt
     else:
-        dataset = ItmDataset(txt_db, img_db, opts.itm_neg_prob)
-    collate_fn = itm_ot_collate if opts.itm_ot_lambda > 0 else itm_collate
-    return dataset, collate_fn
+        img_db_gt = None
+    img_db = all_img_dbs[db_path] if db_path != "" else None
+    all_img_dbs.path2imgdb[db_path] = img_db
+    return img_db, img_db_gt
 
 
 def create_dataloaders(datasets, is_train, opts, all_img_dbs=None):
@@ -119,30 +110,15 @@ def create_dataloaders(datasets, is_train, opts, all_img_dbs=None):
                                      opts.num_bb, opts.compressed_db)
     dataloaders = {}
     for dset in datasets:
-        if is_train:
-            assert len(dset['db']) == len(dset['img'])
-            assert len(dset['tasks']) == len(dset['mix_ratio'])
-            img_db = [all_img_dbs[path] for path in dset['img']]
-            if 'img_gt' in dset:
-                img_db_gt = [all_img_dbs[path] for path in dset['img_gt']]
-        else:
-            assert len(dset['db']) == len(dset['img']) == 1
-            img_db = all_img_dbs[dset['img'][0]]
-            if 'img_gt' in dset:
-                img_db_gt = [all_img_dbs[path] for path in dset['img_gt']]
-
+        img_db, img_db_gt = load_img_feat(dset['img'][0], all_img_dbs, opts)
         for i, t in enumerate(dset['tasks']):
             task = f'{t}_{dset["name"]}'
-
             if is_train:
-                LOGGER.info(f"Loading {task} train dataset "
-                            f"{dset['db']}, {[img.img_dir for img in img_db]}")
-                txt_db = [TxtTokLmdb(path, opts.max_txt_len)
-                          for path in dset['db']]
+                LOGGER.info(f"Loading {task} train dataset {dset['db']}")
+                txt_db = VcrTxtTokLmdb(dset['db'][0], opts.max_txt_len)
             else:
-                LOGGER.info(f"Loading {task} validation dataset, "
-                            f"{dset['db']}, {img_db.img_dir}")
-                txt_db = TxtTokLmdb(dset['db'][0], -1)
+                LOGGER.info(f"Loading {task} validation dataset {dset['db']}")
+                txt_db = VcrTxtTokLmdb(dset['db'][0], -1)
 
             if task.startswith('mlm'):
                 dataset = build_mlm_dataset(txt_db, img_db_gt, img_db, is_train, opts)
@@ -150,24 +126,17 @@ def create_dataloaders(datasets, is_train, opts, all_img_dbs=None):
                 dataset = build_mrfr_dataset(txt_db, img_db_gt, img_db, is_train, opts)
             elif task.startswith('mrc'):
                 dataset = build_mrc_dataset(txt_db, img_db_gt, img_db, is_train, opts)
-            elif task.startswith('itm'):
-                dataset = build_itm_dataset(txt_db, img_db_gt, img_db, is_train, opts)
             else:
                 raise ValueError(f'Undefined task {task}')
 
             LOGGER.info(f"{len(dataset[0])*hvd.size()} samples loaded")
-            if task.startswith('itm'):
-                # itm handles distributed training in dset not sampler
-                loader = build_dataloader_itm(*dataset, is_train, opts)
-            else:
-                loader = build_dataloader(*dataset, is_train, opts)
+            loader = build_dataloader(*dataset, is_train, opts)
             if is_train:
                 ratio = dset['mix_ratio'][i]
                 dataloaders[task] = (loader, ratio)
             else:
                 dataloaders[task] = PrefetchLoader(loader)
     return dataloaders, all_img_dbs
-
 
 def main(opts):
     hvd.init()
@@ -246,16 +215,6 @@ def main(opts):
     # to compute training statistics
     task2loss = {task: RunningMeter(f'loss/{task}')
                  for task in train_dataloaders.keys()}
-    # ITM w/ OT
-    if opts.itm_ot_lambda > 0:
-        for task in train_dataloaders.keys():
-            if task.startswith('itm'):
-                task2loss[f'{task}_xe'] = RunningMeter(f'loss/{task}_xe')
-                task2loss[f'{task}_ot'] = RunningMeter(f'loss/{task}_ot')
-                task2loss[f'{task}_ot_pos'] = RunningMeter(
-                    f'loss/{task}_ot_pos')
-                task2loss[f'{task}_ot_neg'] = RunningMeter(
-                    f'loss/{task}_ot_neg')
 
     n_examples = defaultdict(int)
     n_in_units = defaultdict(int)
@@ -272,32 +231,9 @@ def main(opts):
         n_in_units[name] += (batch['attn_masks'] == 1).sum().item()
         task = name.split('_')[0]
         loss = model(batch, task=task, compute_loss=True)
-        if task.startswith('itm'):
-            # OT
-            itm_loss, ot_loss = loss
-            n_loss_units[name] += itm_loss.size(0)
-            itm_loss = itm_loss.mean()
-            if ot_loss is not None:
-                ot_pos, ot_neg = ot_loss
-                ot_loss = (ot_pos.sum() - ot_neg.sum()
-                           ) / (ot_pos.size(0) + ot_neg.size(0))
 
-                # NOTE: be ware of empty tensor
-                ot_pos = ot_pos.mean().item()
-                if not math.isnan(ot_pos):
-                    task2loss[f'{name}_ot_pos'](ot_pos)
-                ot_neg = ot_neg.mean().item()
-                if not math.isnan(ot_neg):
-                    task2loss[f'{name}_ot_neg'](ot_neg)
-
-                loss = itm_loss + opts.itm_ot_lambda * ot_loss
-                task2loss[f'{name}_xe'](itm_loss.item())
-                task2loss[f'{name}_ot'](ot_loss.item())
-            else:
-                loss = itm_loss
-        else:
-            n_loss_units[name] += loss.size(0)
-            loss = loss.mean()  # loss is not normalized in model
+        n_loss_units[name] += loss.size(0)
+        loss = loss.mean()  # loss is not normalized in model
 
         # backward pass
         delay_unscale = (step+1) % opts.gradient_accumulation_steps != 0
@@ -351,7 +287,7 @@ def main(opts):
                     tot_l = sum(all_gather_list(n_loss_units[t]))
                     l_per_sec = int(tot_l / (time()-start))
                     LOGGER.info(f'{t}: {tot_ex} examples trained at '
-                                f'{ex_per_sec} ex/s')
+                                f'{ex_per_sec} ex/s. Loss: ')
                     TB_LOGGER.add_scalar(f'perf/{t}_ex_per_s', ex_per_sec,
                                          global_step)
                     TB_LOGGER.add_scalar(f'perf/{t}_in_per_s', in_per_sec,
@@ -382,8 +318,6 @@ def validate(model, val_dataloaders):
             val_log = validate_mrfr(model, loader)
         elif task.startswith('mrc'):
             val_log = validate_mrc(model, loader, task)
-        elif task.startswith('itm'):
-            val_log = validate_itm(model, loader)
         else:
             raise ValueError(f'Undefined task {task}')
         val_log = {f'{task}_{k}': v for k, v in val_log.items()}
@@ -498,55 +432,6 @@ def compute_accuracy_for_soft_targets(out, labels):
     return n_correct
 
 
-@torch.no_grad()
-def validate_itm(model, val_loader):
-    LOGGER.info("start running ITM validation...")
-    val_loss = 0
-    tot_ot_loss = 0
-    tot_ot_pos = 0
-    tot_ot_neg = 0
-    tot_score = 0
-    n_ex = 0
-    st = time()
-    for i, batch in enumerate(val_loader):
-        scores, ot_loss = model(batch, task='itm', compute_loss=False)
-        if ot_loss is not None:
-            if isinstance(ot_loss, tuple):
-                ot_pos, ot_neg = ot_loss
-                ot_pos = ot_pos.sum().item()
-                ot_neg = ot_neg.sum().item()
-                tot_ot_pos += ot_pos
-                tot_ot_neg += ot_neg
-                tot_ot_loss += ot_pos - ot_neg
-            else:
-                tot_ot_loss += ot_loss.sum().item()
-        targets = batch['targets']
-        loss = F.cross_entropy(scores, targets, reduction='sum')
-        val_loss += loss.item()
-
-        tot_score += (scores.max(dim=-1)[1] == targets).sum().item()
-        n_ex += len(targets)
-    val_loss = sum(all_gather_list(val_loss))
-    tot_score = sum(all_gather_list(tot_score))
-    n_ex = sum(all_gather_list(n_ex))
-    tot_time = time()-st
-    val_loss /= n_ex
-    val_acc = tot_score / n_ex
-    val_log = {'valid/loss': val_loss,
-               'valid/acc': val_acc,
-               'valid/ex_per_s': n_ex/tot_time}
-
-    if ot_loss is not None:
-        tot_ot_loss = sum(all_gather_list(tot_ot_loss))
-        tot_ot_pos = sum(all_gather_list(tot_ot_pos))
-        tot_ot_neg = sum(all_gather_list(tot_ot_neg))
-        val_log['valid/ot_loss'] = tot_ot_loss / n_ex
-        val_log['valid/ot_pos'] = tot_ot_pos / n_ex
-        val_log['valid/ot_neg'] = tot_ot_neg / n_ex
-
-    LOGGER.info(f"validation finished in {int(tot_time)} seconds, "
-                f"score: {val_acc*100:.2f}")
-    return val_log
 
 
 if __name__ == "__main__":
@@ -569,11 +454,6 @@ if __name__ == "__main__":
 
     parser.add_argument('--mrm_prob', default=0.15, type=float,
                         help='probability to mask in MRM training')
-    parser.add_argument('--itm_neg_prob', default=0.5, type=float,
-                        help='probability to make negative examples'
-                             'in ITM training')
-    parser.add_argument('--itm_ot_lambda', default=0.0, type=float,
-                        help='weight of OT (optimal transport) loss (WRA)')
 
     # Prepro parameters
     parser.add_argument('--max_txt_len', type=int, default=60,

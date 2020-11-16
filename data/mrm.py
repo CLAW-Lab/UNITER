@@ -9,7 +9,7 @@ import random
 import torch
 from torch.nn.utils.rnn import pad_sequence
 from toolz.sandbox import unzip
-from .data import DetectFeatTxtTokDataset, VcrQarDetectFeatTxtTokDataset, pad_tensors, get_gather_index
+from .data import DetectFeatTxtTokDataset, VcrDetectFeatTxtTokDataset, pad_tensors, get_gather_index
 
 
 def _get_img_mask(mask_prob, num_bb):
@@ -41,7 +41,7 @@ def _mask_img_feat(img_feat, img_masks):
     return img_feat_masked
 
 
-class MrfrDataset(VcrQarDetectFeatTxtTokDataset):
+class MrfrDataset(DetectFeatTxtTokDataset):
     def __init__(self, mask_prob, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.mask_prob = mask_prob
@@ -62,6 +62,36 @@ class MrfrDataset(VcrQarDetectFeatTxtTokDataset):
 
         # image input features
         img_feat, img_pos_feat, num_bb = self._get_img_feat(example['img_fname'][1])
+        img_mask = _get_img_mask(self.mask_prob, num_bb)
+        img_mask_tgt = _get_img_tgt_mask(img_mask, len(input_ids))
+
+        attn_masks = torch.ones(len(input_ids) + num_bb, dtype=torch.long)
+
+        return (input_ids, img_feat, img_pos_feat,
+                attn_masks, img_mask, img_mask_tgt)
+
+class MrfrVcrDataset(VcrDetectFeatTxtTokDataset):
+    def __init__(self, mask_prob, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.mask_prob = mask_prob
+
+    def __getitem__(self, i):
+        """
+        Return:
+        - input_ids    : (L, ), i.e., [cls, wd, wd, ..., sep, 0, 0], 0s padded
+        - img_feat     : (num_bb, d)
+        - img_pos_feat : (num_bb, 7)
+        - attn_masks   : (L + num_bb, ), ie., [1, 1, ..., 0, 0, 1, 1]
+        - img_mask     : (num_bb, ) between {0, 1}
+        """
+        example = super().__getitem__(i)
+        # text input
+        input_ids = self._get_input_ids(example)
+        input_ids = self.txt_db.combine_inputs(input_ids)
+
+        # image input features
+        img_feat, img_pos_feat, num_bb = self._get_img_feat(
+            example['img_fname'][0], example['img_fname'][1])
         img_mask = _get_img_mask(self.mask_prob, num_bb)
         img_mask_tgt = _get_img_tgt_mask(img_mask, len(input_ids))
 
@@ -128,7 +158,7 @@ def _get_targets(img_masks, img_soft_label):
     return label_targets
 
 
-class MrcDataset(VcrQarDetectFeatTxtTokDataset):
+class MrcDataset(DetectFeatTxtTokDataset):
     def __init__(self, mask_prob, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.mask_prob = mask_prob
@@ -160,6 +190,48 @@ class MrcDataset(VcrQarDetectFeatTxtTokDataset):
         return (input_ids, img_feat, img_pos_feat,
                 img_soft_labels, attn_masks, img_mask, img_mask_tgt)
 
+class MrcVcrDataset(VcrDetectFeatTxtTokDataset):
+    def __init__(self, mask_prob, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.mask_prob = mask_prob
+
+    def _get_img_feat(self, gt_fname, fname):
+        img_dump = self.img_db.get_dump(fname)
+        num_bb = self.img_db.name2nbb[fname]
+        img_feat = torch.tensor(img_dump['features'])
+        bb = torch.tensor(img_dump['norm_bb'])
+        img_bb = torch.cat([bb, bb[:, 4:5]*bb[:, 5:]], dim=-1)
+        img_soft_label = torch.tensor(img_dump['soft_labels'])
+
+        img_dump_gt = self.img_db_gt.get_dump(gt_fname)
+        num_bb_gt = self.img_db_gt.name2nbb[gt_fname]
+        img_feat_gt = torch.tensor(img_dump_gt['features'])
+        bb_gt = torch.tensor(img_dump_gt['norm_bb'])
+        img_bb_gt = torch.cat([bb_gt, bb_gt[:, 4:5] * bb_gt[:, 5:]], dim=-1)
+        img_soft_label_gt = torch.tensor(img_dump_gt['soft_labels'])
+
+        img_feat = torch.cat([img_feat_gt, img_feat], dim=0)
+        img_bb = torch.cat([img_bb_gt, img_bb], dim=0)
+        img_soft_label = torch.cat([img_soft_label_gt, img_soft_label], dim=0)
+        num_bb = img_feat.size(0)
+        return img_feat, img_bb, img_soft_label, num_bb
+
+    def __getitem__(self, i):
+        example = super().__getitem__(i)
+        img_feat, img_pos_feat, img_soft_labels, num_bb = self._get_img_feat(
+            example['img_fname'][0], example['img_fname'][1])
+        # image input features
+        img_mask = _get_img_mask(self.mask_prob, num_bb)
+
+        # text input
+        input_ids = self._get_input_ids(example)
+        input_ids = self.txt_db.combine_inputs(input_ids)
+        img_mask_tgt = _get_img_tgt_mask(img_mask, len(input_ids))
+
+        attn_masks = torch.ones(len(input_ids) + num_bb, dtype=torch.long)
+
+        return (input_ids, img_feat, img_pos_feat,
+                img_soft_labels, attn_masks, img_mask, img_mask_tgt)
 
 def mrc_collate(inputs):
     (input_ids, img_feats, img_pos_feats, img_soft_labels,

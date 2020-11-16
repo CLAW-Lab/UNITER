@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation.
 Licensed under the MIT license.
 
 """
-from .data import (TxtTokLmdb, DetectFeatLmdb, VcrQarDetectFeatTxtTokDataset,
+from .data import (TxtTokLmdb, DetectFeatLmdb,VcrTxtTokLmdb,VcrDetectFeatTxtTokDataset,
                    ImageLmdbGroup, ConcatDatasetWithLens)
 from .sampler import TokenBucketSampler
 from .loader import PrefetchLoader, MetaLoader
@@ -20,7 +20,7 @@ from .itm import (TokenBucketSamplerForItm, ItmDataset,
                   ItmRankDatasetHardNegFromText,
                   itm_rank_collate, itm_val_collate, itm_eval_collate,
                   itm_rank_hn_collate)
-from .mlm import MlmDataset, mlm_collate
-from .mrm import MrfrDataset, MrcDataset, mrfr_collate, mrc_collate
-from .vcr import (VcrTxtTokLmdb, VcrDataset, VcrEvalDataset,
+from .mlm import MlmDataset, MlmVcrDataset, mlm_collate
+from .mrm import MrfrDataset, MrfrVcrDataset, MrcVcrDataset, MrcDataset, mrfr_collate, mrc_collate
+from .vcr import (VcrDataset, VcrEvalDataset,
                   vcr_collate, vcr_eval_collate)

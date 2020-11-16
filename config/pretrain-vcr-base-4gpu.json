@@ -13,7 +13,7 @@
     "num_special_tokens": 81,
     "gradient_accumulation_steps": 6,
     "learning_rate": 3e-04,
-    "valid_steps": 5000,
+    "valid_steps": 1000,
     "num_train_steps": 60000,
     "optim": "adamw",
     "betas": [
@@ -32,8 +32,7 @@
         {
             "name": "vcr",
             "db": ["/txt/vcr_train.db"],
-            "img": ["/img/vcr_train"],
-            "img_gt": ["/img/vcr_gt_train"],
+            "img": ["/img/vcr_train;/img/vcr_gt_train"],
             "tasks": [
                 "mlm",
                 "mrfr",
@@ -50,7 +49,7 @@
         {
             "name": "vcr",
             "db": ["/txt/vcr_val.db/"],
-            "img": ["/img/vcr_val/"],
+            "img": ["/img/vcr_val/;/img/vcr_gt_val"],
             "tasks": [
                 "mlm",
                 "mrfr",
