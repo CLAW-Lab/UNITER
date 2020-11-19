@@ -1,9 +1,3 @@
-"""
-Copyright (c) Microsoft Corporation.
-Licensed under the MIT license.
-
-preprocess Conceptual Captions annotations into LMDB
-"""
 import argparse
 import json
 import os
@@ -31,20 +25,20 @@ def bert_tokenize(tokenizer, text):
 def process_conceptual_captions(json_file, split, db, tokenizer, missing=None):
     id2len = {}
     txt2img = {}  # not sure if useful
-    cc_json = json.load(open(json_file))
+    cc_json = json.load(json_file)
 
     for example in tqdm(cc_json["images"], desc='processing Conceptual Captions'):
         if example["split"] == split:
             id_ = example['imgid']
-            tokens = example['sentence']['tokens']
-            input_ids = tokenizer(example['sentence'])
-            img_fname = f'{example["filename"]img_id[:-4]}.npy'
+            tokens = example['sentences'][0]['tokens']
+            input_ids = tokenizer(example['sentences'][0]['raw'])
+            img_fname = f'{example["filename"][:-4]}.npy'
 
             txt2img[id_] = img_fname
             id2len[id_] = len(input_ids)
             example['input_ids'] = input_ids
             example['img_fname'] = img_fname
-            db[id_] = example
+            db[str(id_)] = example
     return id2len, txt2img
 
 
@@ -76,7 +70,7 @@ def main(opts):
             else:
                 missing_imgs = None
             id2lens, txt2img = process_conceptual_captions(
-                ann, db, tokenizer, missing_imgs)
+                ann, opts.split,  db, tokenizer, missing_imgs)
 
     with open(f'{opts.output}/id2len.json', 'w') as f:
         json.dump(id2lens, f)
