@@ -104,11 +104,14 @@ def main(opts):
                        f'_min{opts.min_bb}')
     if opts.compress:
         db_name += '_compressed'
-    if not exists(f'{opts.output}/{split}'):
-        os.makedirs(f'{opts.output}/{split}')
-    env = lmdb.open(f'{opts.output}/{split}/{db_name}', map_size=1024**4)
+    if not exists(f'{opts.output}/'):
+        os.makedirs(f'{opts.output}/')
+    env = lmdb.open(f'{opts.output}/{db_name}', map_size=1024**4)
     txn = env.begin(write=True)
-    files = glob.glob(f'{opts.img_dir}/*.npy')
+    if opt.img_list:
+        files = pickle.load(open(opt.img_list))
+    else:
+        files = glob.glob(f'{opts.img_dir}/*.npy')
     load = load_npy(opts.conf_th, opts.max_bb, opts.min_bb, opts.num_bb,
                     keep_all=opts.keep_all)
     name2nbb = {}
@@ -159,5 +162,7 @@ if __name__ == '__main__':
                         help='min number of bounding boxes')
     parser.add_argument('--num_bb', type=int, default=100,
                         help='number of bounding boxes (fixed)')
+    parser.add_argument('--img_list', type=str,
+                        help='list of processed img features (to avoid long glob times)')
     args = parser.parse_args()
     main(args)
