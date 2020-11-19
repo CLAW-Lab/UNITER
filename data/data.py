@@ -179,11 +179,11 @@ class TxtLmdb(object):
 class TxtTokLmdb(object):
     def __init__(self, db_dir, max_txt_len=60):
         if max_txt_len == -1:
-            self.id2len = json.load(open(f'{db_dir}/id2len_qa.json'))
+            self.id2len = json.load(open(f'{db_dir}/id2len.json'))
         else:
             self.id2len = {
                 id_: len_
-                for id_, len_ in json.load(open(f'{db_dir}/id2len_qa.json')
+                for id_, len_ in json.load(open(f'{db_dir}/id2len.json')
                                            ).items()
                 if len_ <= max_txt_len
             }
@@ -316,7 +316,7 @@ class VcrDetectFeatTxtTokDataset(DetectFeatTxtTokDataset):
         answer_gt_id = [self.txt_db.sep] + copy.deepcopy(answer_ids[answer_label])
         input_ids = question_ids + answer_gt_id
 
-        if task in ("qa,qar","qar"):
+        if task in ("qar", "qa,qar"):
             assert answer_label >= 0, "answer_label < 0"
             rational_ids = txt_dump['input_ids_rs']
             rational_label= txt_dump['qar_target']

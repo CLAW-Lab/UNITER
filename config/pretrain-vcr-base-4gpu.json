@@ -1,6 +1,6 @@
 {
     "model_config": "/src/config/uniter-base.json",
-    "checkpoint": "/pretrain/uniter-base.pt",
+    "checkpoint": "/pretrain/uniter-base-init.pt",
     "output_dir": "/storage/self-supervised-finetuning/vcr-extended-pt",
     "mrm_prob": 0.15,
     "max_txt_len": 60,
