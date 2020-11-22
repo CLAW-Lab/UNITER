@@ -109,7 +109,7 @@ class DetectFeatLmdb(object):
         else:
             img_dump = msgpack.loads(dump, raw=False)
             img_dump = _fp16_to_fp32(img_dump)
-        img_dump = {k: arr[:nbb, ...] for k, arr in img_dump.items()}
+        img_dump = {k: arr[:nbb, ...] if arr.size >= nbb else arr for k, arr in img_dump.items() }
         return img_dump
 
     def __getitem__(self, file_name):
@@ -254,7 +254,7 @@ class DetectFeatTxtTokDataset(Dataset):
 
 
 class VcrTxtTokLmdb(TxtTokLmdb):
-    def __init__(self, db_dir, max_txt_len=120, task="qa"):
+    def __init__(self, db_dir, max_txt_len=120, task="qar"):
         assert task == "qa" or task == "qar" or task == "qa,qar", \
             "VCR only support the following tasks: 'qa', 'qar' or 'qa,qar'"
         self.task = task
@@ -309,7 +309,7 @@ class VcrDetectFeatTxtTokDataset(DetectFeatTxtTokDataset):
             self.lens = [tl + self.img_db_gt.name2nbb[txt2img[id_][0]]
                          for tl, id_ in zip(txt_lens, self.ids)]
 
-    def _get_input_ids(self, txt_dump, task="qa"):
+    def _get_input_ids(self, txt_dump, task="qar"):
         question_ids = txt_dump['input_ids']
         answer_ids = txt_dump['input_ids_as']
         answer_label = txt_dump['qa_target']

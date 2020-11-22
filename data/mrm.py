@@ -218,6 +218,7 @@ class MrcVcrDataset(VcrDetectFeatTxtTokDataset):
 
     def __getitem__(self, i):
         example = super().__getitem__(i)
+
         img_feat, img_pos_feat, img_soft_labels, num_bb = self._get_img_feat(
             example['img_fname'][0], example['img_fname'][1])
         # image input features

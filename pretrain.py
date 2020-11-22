@@ -123,13 +123,9 @@ def create_dataloaders(datasets, is_train, opts, all_img_dbs=None):
             assert len(dset['db']) == len(dset['img'])
             assert len(dset['tasks']) == len(dset['mix_ratio'])
             img_db = [all_img_dbs[path] for path in dset['img']]
-            if 'img_gt' in dset:
-                img_db_gt = [all_img_dbs[path] for path in dset['img_gt']]
         else:
             assert len(dset['db']) == len(dset['img']) == 1
             img_db = all_img_dbs[dset['img'][0]]
-            if 'img_gt' in dset:
-                img_db_gt = [all_img_dbs[path] for path in dset['img_gt']]
 
         for i, t in enumerate(dset['tasks']):
             task = f'{t}_{dset["name"]}'
@@ -145,13 +141,13 @@ def create_dataloaders(datasets, is_train, opts, all_img_dbs=None):
                 txt_db = TxtTokLmdb(dset['db'][0], -1)
 
             if task.startswith('mlm'):
-                dataset = build_mlm_dataset(txt_db, img_db_gt, img_db, is_train, opts)
+                dataset = build_mlm_dataset(txt_db, img_db, is_train, opts)
             elif task.startswith('mrfr'):
-                dataset = build_mrfr_dataset(txt_db, img_db_gt, img_db, is_train, opts)
+                dataset = build_mrfr_dataset(txt_db, img_db, is_train, opts)
             elif task.startswith('mrc'):
-                dataset = build_mrc_dataset(txt_db, img_db_gt, img_db, is_train, opts)
+                dataset = build_mrc_dataset(txt_db, img_db, is_train, opts)
             elif task.startswith('itm'):
-                dataset = build_itm_dataset(txt_db, img_db_gt, img_db, is_train, opts)
+                dataset = build_itm_dataset(txt_db, img_db, is_train, opts)
             else:
                 raise ValueError(f'Undefined task {task}')
 
@@ -223,7 +219,6 @@ def main(opts):
     model = UniterForPretraining.from_pretrained(
         opts.model_config, checkpoint,
         img_dim=IMG_DIM, img_label_dim=IMG_LABEL_DIM)
-    model.init_word_embeddings(opts.num_special_tokens)
     model.to(device)
     model.train()
     # make sure every process has same model parameters in the beginning
