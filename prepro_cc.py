@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import pickle
 from os.path import exists
 
 from cytoolz import curry
@@ -22,13 +23,13 @@ def bert_tokenize(tokenizer, text):
     return ids
 
 
-def process_conceptual_captions(json_file, split, db, tokenizer, missing=None):
+def process_conceptual_captions(json_file, id_list, db, tokenizer, missing=None):
     id2len = {}
     txt2img = {}  # not sure if useful
     cc_json = json.load(json_file)
 
     for example in tqdm(cc_json["images"], desc='processing Conceptual Captions'):
-        if example["split"] == split:
+        if example['imgid'] in id_list:
             id_ = example['imgid']
             tokens = example['sentences'][0]['tokens']
             input_ids = tokenizer(example['sentences'][0]['raw'])
@@ -88,6 +89,6 @@ if __name__ == '__main__':
                         help='output dir of DB')
     parser.add_argument('--toker', default='bert-base-cased',
                         help='which BERT tokenizer to used')
-    parser.add_argument('--split', default='train')
+    parser.add_argument('--id_list', default='train')
     args = parser.parse_args()
     main(args)

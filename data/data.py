@@ -179,11 +179,11 @@ class TxtLmdb(object):
 class TxtTokLmdb(object):
     def __init__(self, db_dir, max_txt_len=60):
         if max_txt_len == -1:
-            self.id2len = json.load(open(f'{db_dir}/id2len_qa.json'))
+            self.id2len = json.load(open(f'{db_dir}/id2len.json'))
         else:
             self.id2len = {
                 id_: len_
-                for id_, len_ in json.load(open(f'{db_dir}/id2len_qa.json')
+                for id_, len_ in json.load(open(f'{db_dir}/id2len.json')
                                            ).items()
                 if len_ <= max_txt_len
             }
@@ -235,7 +235,7 @@ class DetectFeatTxtTokDataset(Dataset):
         txt_lens, self.ids = get_ids_and_lens(txt_db)
 
         txt2img = txt_db.txt2img
-        self.lens = [tl + self.img_db.name2nbb[txt2img[id_][1]]
+        self.lens = [tl + self.img_db.name2nbb[txt2img[id_]]
                      for tl, id_ in zip(txt_lens, self.ids)]
 
     def __len__(self):
@@ -316,7 +316,7 @@ class VcrDetectFeatTxtTokDataset(DetectFeatTxtTokDataset):
         answer_gt_id = [self.txt_db.sep] + copy.deepcopy(answer_ids[answer_label])
         input_ids = question_ids + answer_gt_id
 
-        if task == "qar":
+        if task in ("qa,qar","qar"):
             assert answer_label >= 0, "answer_label < 0"
             rational_ids = txt_dump['input_ids_rs']
             rational_label= txt_dump['qar_target']
@@ -370,7 +370,7 @@ def get_gather_index(txt_lens, num_bbs, batch_size, max_len, out_size):
     for i, (tl, nbb) in enumerate(zip(txt_lens, num_bbs)):
         gather_index.data[i, tl:tl+nbb] = torch.arange(max_len, max_len+nbb,
                                                        dtype=torch.long).data
-    return gather_index
+    return gather_index5
 
 
 class ConcatDatasetWithLens(ConcatDataset):

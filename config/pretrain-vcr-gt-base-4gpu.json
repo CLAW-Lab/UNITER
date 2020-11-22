@@ -32,7 +32,7 @@
         {
             "name": "vcr",
             "db": ["/txt/vcr_train.db"],
-            "img": ["/img/vcr_train;/img/vcr_gt_train"],
+            "img": ["/img/vcr_train"],
             "tasks": [
                 "mlm",
                 "mrfr",
