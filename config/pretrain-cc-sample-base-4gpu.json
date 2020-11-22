@@ -1,5 +1,5 @@
 {
-    "output_dir": "/storage/pretraining/indomain-from-base",
+    "output_dir": "/storage/pretraining/cc-test-from-base",
     "model_config": "/src/config/uniter-base.json",
     "checkpoint": "/pretrain/uniter-base.pt",
     "mrm_prob": 0.15,
@@ -13,8 +13,8 @@
     "train_batch_size": 10240,
     "val_batch_size": 10240,
     "gradient_accumulation_steps": 2,
-    "learning_rate": 5e-05,
-    "valid_steps": 1000,
+    "learning_rate": 3e-04,
+    "valid_steps": 500,
     "num_train_steps": 10000,
     "optim": "adamw",
     "betas": [
@@ -31,14 +31,12 @@
     "pin_mem": true,
     "train_datasets": [
         {
-            "name": "coco",
+            "name": "cc_sample",
             "db": [
-                "/txt/pretrain_coco_train.db/",
-                "/txt/pretrain_coco_restval.db/"
+                "/txt/cc_sample.db"
             ],
             "img": [
-                "/img/coco_train2014/",
-                "/img/coco_val2014/"
+                "/img/cc_img_sample.db"
             ],
             "tasks": [
                 "mlm",
@@ -54,12 +52,12 @@
     ],
     "val_datasets": [
         {
-            "name": "coco",
+            "name": "cc_sample",
             "db": [
-                "/txt/pretrain_coco_val.db/"
+                "/txt/cc_sample.db/"
             ],
             "img": [
-                "/img/coco_val2014/"
+                "/img/cc_img_sample.db"
             ],
             "tasks": [
                 "mlm",

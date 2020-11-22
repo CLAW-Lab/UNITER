@@ -57,11 +57,11 @@ class MrfrDataset(DetectFeatTxtTokDataset):
         """
         example = super().__getitem__(i)
         # text input
-        input_ids = self._get_input_ids(example)
+        input_ids = example['input_ids']
         input_ids = self.txt_db.combine_inputs(input_ids)
 
         # image input features
-        img_feat, img_pos_feat, num_bb = self._get_img_feat(example['img_fname'][1])
+        img_feat, img_pos_feat, num_bb = self._get_img_feat(example['img_fname'])
         img_mask = _get_img_mask(self.mask_prob, num_bb)
         img_mask_tgt = _get_img_tgt_mask(img_mask, len(input_ids))
 
@@ -175,13 +175,13 @@ class MrcDataset(DetectFeatTxtTokDataset):
     def __getitem__(self, i):
         example = super().__getitem__(i)
         img_feat, img_pos_feat, img_soft_labels, num_bb = self._get_img_feat(
-            example['img_fname'][1])
+            example['img_fname'])
 
         # image input features
         img_mask = _get_img_mask(self.mask_prob, num_bb)
 
         # text input
-        input_ids = self._get_input_ids(example)
+        input_ids = example['input_ids']
         input_ids = self.txt_db.combine_inputs(input_ids)
         img_mask_tgt = _get_img_tgt_mask(img_mask, len(input_ids))
 
