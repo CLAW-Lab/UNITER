@@ -309,20 +309,17 @@ class VcrDetectFeatTxtTokDataset(DetectFeatTxtTokDataset):
             self.lens = [tl + self.img_db_gt.name2nbb[txt2img[id_][0]]
                          for tl, id_ in zip(txt_lens, self.ids)]
 
-    def _get_input_ids(self, txt_dump, task="qar"):
+    def _get_input_ids(self, txt_dump):
         question_ids = txt_dump['input_ids']
         answer_ids = txt_dump['input_ids_as']
         answer_label = txt_dump['qa_target']
-        answer_gt_id = [self.txt_db.sep] + copy.deepcopy(answer_ids[answer_label])
-        input_ids = question_ids + answer_gt_id
+        answer_gt_id = copy.deepcopy(answer_ids[answer_label])
 
-        if task in ("qa,qar","qar"):
-            assert answer_label >= 0, "answer_label < 0"
-            rational_ids = txt_dump['input_ids_rs']
-            rational_label= txt_dump['qar_target']
-            rational_gt_ids = [self.txt_db.sep] + copy.deepcopy(rational_ids[rational_label])
-            input_ids += rational_gt_ids
-        return input_ids
+        assert answer_label >= 0, "answer_label < 0"
+        rational_ids = txt_dump['input_ids_rs']
+        rational_label= txt_dump['qar_target']
+        rational_gt_ids = copy.deepcopy(rational_ids[rational_label])
+        return question_ids, answer_gt_id, rational_gt_ids
 
     def _get_img_feat(self, fname_gt, fname):
         if self.img_db and self.img_db_gt:

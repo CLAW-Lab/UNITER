@@ -86,8 +86,8 @@ class MrfrVcrDataset(VcrDetectFeatTxtTokDataset):
         """
         example = super().__getitem__(i)
         # text input
-        input_ids = self._get_input_ids(example)
-        input_ids = self.txt_db.combine_inputs(input_ids)
+        input_ids, ans_ids, rat_ids  = self._get_input_ids(example)
+        input_ids = self.txt_db.combine_inputs(input_ids, ans_ids, rat_ids)
 
         # image input features
         img_feat, img_pos_feat, num_bb = self._get_img_feat(
@@ -225,8 +225,8 @@ class MrcVcrDataset(VcrDetectFeatTxtTokDataset):
         img_mask = _get_img_mask(self.mask_prob, num_bb)
 
         # text input
-        input_ids = self._get_input_ids(example)
-        input_ids = self.txt_db.combine_inputs(input_ids)
+        input_ids, ans_ids, rat_ids, = self._get_input_ids(example)
+        input_ids = self.txt_db.combine_inputs(input_ids, ans_ids, rat_ids)
         img_mask_tgt = _get_img_tgt_mask(img_mask, len(input_ids))
 
         attn_masks = torch.ones(len(input_ids) + num_bb, dtype=torch.long)

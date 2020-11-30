@@ -110,15 +110,10 @@ class MlmVcrDataset(VcrDetectFeatTxtTokDataset):
         example = super().__getitem__(i)
 
         # text input
-        input_ids, txt_labels = self.create_mlm_io(self._get_input_ids(example))
-        # print("annot id", example['annot_id'])
-        # print("input tkns", example['toked_question'])
-        # print("answer ids", example['toked_as'][example['answer_label']])
-        #
-        # print("input ids", example['input_ids'])
-        # print("answer ids", example['input_ids_as'][example['answer_label']])
-        # print("retrieved ids", input_ids, "\n")
-        # img input
+        question_ids, answer_ids, rationale_ids = self._get_input_ids(example)
+        input_ids, txt_labels = self.create_mlm_io(
+                question_ids, answer_ids, rationale_ids)
+
         img_feat, img_pos_feat, num_bb = self._get_img_feat(
             example['img_fname'][0], example['img_fname'][1])
 
@@ -126,14 +121,25 @@ class MlmVcrDataset(VcrDetectFeatTxtTokDataset):
 
         return input_ids, img_feat, img_pos_feat, attn_masks, txt_labels
 
-    def create_mlm_io(self, input_ids):
-        input_ids, txt_labels = random_word(input_ids,
-                                            self.txt_db.v_range,
-                                            self.txt_db.mask)
+    def create_mlm_io(self, input_ids, answer_ids, rationale_ids):
+        input_ids, txt_labels = random_word(
+                input_ids, self.txt_db.v_range, self.txt_db.mask)
+        answer_ids, ans_txt_labels = random_word(
+                answer_ids, self.txt_db.v_range, self.txt_db.mask)
+        rationale_ids, rat_txt_labels = random_word(
+                rationale_ids, self.txt_db.v_range, self.txt_db.mask)
+
         input_ids = torch.tensor([self.txt_db.cls_]
                                  + input_ids
+                                 + [self.txt_db.sep]
+                                 + answer_ids
+                                 + [self.txt_db.sep]
+                                 + rationale_ids
                                  + [self.txt_db.sep])
-        txt_labels = torch.tensor([-1] + txt_labels + [-1])
+        txt_labels = torch.tensor(
+                [-1] + txt_labels +
+                [-1] + ans_txt_labels +
+                [-1] + rat_txt_labels + [-1])
         return input_ids, txt_labels
 
 
