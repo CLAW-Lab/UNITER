@@ -367,7 +367,7 @@ def get_gather_index(txt_lens, num_bbs, batch_size, max_len, out_size):
     for i, (tl, nbb) in enumerate(zip(txt_lens, num_bbs)):
         gather_index.data[i, tl:tl+nbb] = torch.arange(max_len, max_len+nbb,
                                                        dtype=torch.long).data
-    return gather_index5
+    return gather_index
 
 
 class ConcatDatasetWithLens(ConcatDataset):

@@ -130,13 +130,8 @@ class MlmVcrDataset(VcrDetectFeatTxtTokDataset):
         rationale_ids, rat_txt_labels = random_word(
                 rationale_ids, self.txt_db.v_range, self.txt_db.mask)
 
-        input_ids = torch.tensor([self.txt_db.cls_]
-                                 + input_ids
-                                 + [self.txt_db.sep]
-                                 + answer_ids
-                                 + [self.txt_db.sep]
-                                 + rationale_ids
-                                 + [self.txt_db.sep])
+        input_ids = torch.tensor(
+           self.txt_db.combine_inputs(input_ids, answer_ids, rationale_ids))
         txt_labels = torch.tensor(
                 [-1] + txt_labels +
                 [-1] + ans_txt_labels +

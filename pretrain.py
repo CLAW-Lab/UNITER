@@ -42,10 +42,7 @@ from utils.const import IMG_DIM, IMG_LABEL_DIM, BUCKET_SIZE
 
 
 def build_dataloader(dataset, collate_fn, is_train, opts):
-    if is_train:
-        batch_size = opts.train_batch_size
-    else:
-        batch_size = opts.val_batch_size
+    batch_size = opts.train_batch_size if is_train else opts.val_batch_size
     sampler = TokenBucketSampler(dataset.lens, bucket_size=BUCKET_SIZE,
                                  batch_size=batch_size, droplast=is_train)
     loader = DataLoader(dataset, batch_sampler=sampler,
@@ -55,10 +52,7 @@ def build_dataloader(dataset, collate_fn, is_train, opts):
 
 
 def build_dataloader_itm(dataset, collate_fn, is_train, opts):
-    if is_train:
-        batch_size = opts.train_batch_size
-    else:
-        batch_size = opts.val_batch_size
+    batch_size = opts.train_batch_size if is_train else opts.val_batch_size
     sampler = TokenBucketSamplerForItm(
         dataset, bucket_size=BUCKET_SIZE,
         batch_size=batch_size, droplast=is_train)
@@ -219,6 +213,7 @@ def main(opts):
     model = UniterForPretraining.from_pretrained(
         opts.model_config, checkpoint,
         img_dim=IMG_DIM, img_label_dim=IMG_LABEL_DIM)
+    model.init_word_embeddings(opts.num_special_tokens)
     model.to(device)
     model.train()
     # make sure every process has same model parameters in the beginning

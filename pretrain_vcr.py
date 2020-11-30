@@ -43,10 +43,7 @@ from utils.const import IMG_DIM, IMG_LABEL_DIM, BUCKET_SIZE
 
 
 def build_dataloader(dataset, collate_fn, is_train, opts):
-    if is_train:
-        batch_size = opts.train_batch_size
-    else:
-        batch_size = opts.val_batch_size
+    batch_size = opts.train_batch_size if is_train else opts.val_batch_size
     sampler = TokenBucketSampler(dataset.lens, bucket_size=BUCKET_SIZE,
                                  batch_size=batch_size, droplast=is_train)
     loader = DataLoader(dataset, batch_sampler=sampler,
@@ -55,33 +52,17 @@ def build_dataloader(dataset, collate_fn, is_train, opts):
     return loader
 
 def build_mlm_dataset(txt_db, img_db_gt, img_db, is_train, opts):
-    print(txt_db, img_db_gt, img_db)
-    if is_train:
-        collate_fn = mlm_collate
-        # print(params)
-        dataset = MlmVcrDataset(txt_db, img_db_gt, img_db)
-    else:
-        collate_fn = mlm_collate
-        dataset = MlmVcrDataset(txt_db, img_db_gt, img_db)
-
-    return dataset, collate_fn
+    dataset = MlmVcrDataset(txt_db, img_db_gt, img_db)
+    return dataset, mlm_collate
 
 
 def build_mrfr_dataset(txt_db, img_db_gt, img_db, is_train, opts):
-    if is_train:
-        dataset = MrfrVcrDataset(opts.mrm_prob, txt_db, img_db_gt, img_db)
-    else:
-        dataset = MrfrVcrDataset(opts.mrm_prob, txt_db, img_db_gt, img_db)
-
+    dataset = MrfrVcrDataset(opts.mrm_prob, txt_db, img_db_gt, img_db)
     return dataset, mrfr_collate
 
 
 def build_mrc_dataset(txt_db, img_db_gt, img_db, is_train, opts):
-    if is_train:
-        dataset = MrcVcrDataset(opts.mrm_prob, txt_db, img_db_gt, img_db)
-    else:
-        dataset = MrcVcrDataset(opts.mrm_prob, txt_db,img_db_gt,  img_db)
-
+    dataset = MrcVcrDataset(opts.mrm_prob, txt_db, img_db_gt, img_db)
     return dataset, mrc_collate
 
 
@@ -115,29 +96,38 @@ def create_dataloaders(datasets, is_train, opts, all_img_dbs=None):
         img_db, img_db_gt = load_img_feat(dset['img'][0], all_img_dbs, opts)
         for i, t in enumerate(dset['tasks']):
             task = f'{t}_{dset["name"]}'
+            qa_task = f'{task}_qa'
+            qar_task = f'{task}_qar'
             if is_train:
                 LOGGER.info(f"Loading {task} train dataset {dset['db']}")
-                txt_db = VcrTxtTokLmdb(dset['db'][0], opts.max_txt_len)
+                qa_txt_db = VcrTxtTokLmdb(dset['db'][0], opts.max_txt_len, task='qa')
+                qar_txt_db = VcrTxtTokLmdb(dset['db'][0], opts.max_txt_len, task='qar')
             else:
                 LOGGER.info(f"Loading {task} validation dataset {dset['db']}")
-                txt_db = VcrTxtTokLmdb(dset['db'][0], -1)
-
+                qa_txt_db = VcrTxtTokLmdb(dset['db'][0], -1, task='qa')
+                qar_txt_db = VcrTxtTokLmdb(dset['db'][0], -1, task='qar')
             if task.startswith('mlm'):
-                dataset = build_mlm_dataset(txt_db, img_db_gt, img_db, is_train, opts)
+                qa_dataset = build_mlm_dataset(qa_txt_db, img_db_gt, img_db, is_train, opts)
+                qar_dataset = build_mlm_dataset(qar_txt_db, img_db_gt, img_db, is_train, opts)
             elif task.startswith('mrfr'):
-                dataset = build_mrfr_dataset(txt_db, img_db_gt, img_db, is_train, opts)
+                qa_dataset = build_mrfr_dataset(qa_txt_db, img_db_gt, img_db, is_train, opts)
+                qar_dataset = build_mrfr_dataset(qar_txt_db, img_db_gt, img_db, is_train, opts)
             elif task.startswith('mrc'):
-                dataset = build_mrc_dataset(txt_db, img_db_gt, img_db, is_train, opts)
+                qa_dataset = build_mrc_dataset(qa_txt_db, img_db_gt, img_db, is_train, opts)
+                qar_dataset = build_mrc_dataset(qar_txt_db, img_db_gt, img_db, is_train, opts)
             else:
                 raise ValueError(f'Undefined task {task}')
 
             LOGGER.info(f"{len(dataset[0])*hvd.size()} samples loaded")
-            loader = build_dataloader(*dataset, is_train, opts)
+            qa_loader = build_dataloader(*qa_dataset, is_train, opts)
+            qar_loader = build_dataloader(*qar_dataset, is_train, opts)
             if is_train:
                 ratio = dset['mix_ratio'][i]
-                dataloaders[task] = (loader, ratio)
+                dataloaders[qa_task] = (qa_loader, ratio)
+                dataloaders[qar_task] = (qar_loader, ratio)
             else:
-                dataloaders[task] = PrefetchLoader(loader)
+                dataloaders[qa_task] = PrefetchLoader(qa_loader)
+                dataloaders[qar_task] = PrefetchLoader(qar_loader)
     return dataloaders, all_img_dbs
 
 def main(opts):
