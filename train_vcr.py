@@ -155,7 +155,7 @@ def main(opts):
     val_txt_db = VcrTxtTokLmdb(opts.val_txt_db, -1)
     val_dataset = VcrEvalDataset(
         "val", val_txt_db, img_db=val_img_db, img_db_gt=val_img_db_gt)
-    val_final_dataset = VcrEvalDataset(
+    val_final_datzaset = VcrEvalDataset(
         "test", val_txt_db, img_db=val_img_db, img_db_gt=val_img_db_gt)
     val_dataloader = build_dataloader(val_dataset, vcr_eval_collate,
                                       False, opts)

@@ -73,6 +73,7 @@ class MlmDataset(DetectFeatTxtTokDataset):
 
         # text input
         input_ids, txt_labels = self.create_mlm_io(example['input_ids'])
+
         # img input
         img_feat, img_pos_feat, num_bb = self._get_img_feat(example['img_fname'])
 
