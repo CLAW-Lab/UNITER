@@ -13,6 +13,7 @@ from .data import DetectFeatTxtTokDataset, pad_tensors, get_gather_index
 
 
 def _get_img_mask(mask_prob, num_bb):
+    ''' Creates binary  mask for img features'''
     img_mask = [random.random() < mask_prob for _ in range(num_bb)]
     if not any(img_mask):
         # at least mask 1
@@ -22,6 +23,7 @@ def _get_img_mask(mask_prob, num_bb):
 
 
 def _get_img_tgt_mask(img_mask, txt_len):
+    ''' Pad image feat mask to cover txt embeddings '''
     z = torch.zeros(txt_len, dtype=torch.uint8)
     img_mask_tgt = torch.cat([z, img_mask], dim=0)
     return img_mask_tgt
