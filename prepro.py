@@ -10,8 +10,8 @@ import os
 from os.path import exists
 
 from cytoolz import curry
-from tqdm import tqdm
 from pytorch_pretrained_bert import BertTokenizer
+from tqdm import tqdm
 
 from data.data import open_lmdb
 
@@ -40,16 +40,17 @@ def process_cc(json_file, db, tokenizer, missing=None, split="train"):
             if missing and img_fname in missing: continue
             example = sentence
             input_ids = tokenizer(example['raw'])
-            example['id'] = f"{image['split']}-{img_fname[:-4]}"
+            id_ =  f"{image['split']}-{img_fname[:-4]}"
+            example['id'] = id_
             example['imgid'] = image['imgid']
             example['split'] = image['split']
             example['img_fname'] = npy_fname
             example['raw_fname'] = img_fname
             example['input_ids'] = input_ids
 
-            txt2img[img_id] = img_fname
-            id2len[img_id] = len(input_ids)
-            db[example['id']] = example
+            txt2img[id_] = img_fname
+            id2len[id_] = len(input_ids)
+            db[id_] = example
     return id2len, txt2img
 
 

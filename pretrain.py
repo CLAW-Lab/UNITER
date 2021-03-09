@@ -5,40 +5,35 @@ Licensed under the MIT license.
 UNITER pre-training
 """
 import argparse
-from collections import defaultdict
 import json
 import math
 import os
+from collections import defaultdict
 from os.path import exists, join
 from time import time
 
 import torch
-from torch.utils.data import DataLoader
-from torch.nn import functional as F
-from torch.nn.utils import clip_grad_norm_
-
 from apex import amp
 from horovod import torch as hvd
-
+from torch.nn import functional as F
+from torch.nn.utils import clip_grad_norm_
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from data import (TokenBucketSampler, TokenBucketSamplerForItm,
-                  MetaLoader, PrefetchLoader,
-                  TxtTokLmdb, ImageLmdbGroup, ConcatDatasetWithLens,
-                  MlmDataset, MrfrDataset, MrcDataset,
-                  mlm_collate, mrfr_collate, mrc_collate,
-                  ItmDataset, itm_collate, itm_ot_collate)
-
+from data import (ConcatDatasetWithLens, ImageLmdbGroup, ItmDataset,
+                  MetaLoader, MlmDataset, MrcDataset, MrfrDataset,
+                  PrefetchLoader, TokenBucketSampler, TokenBucketSamplerForItm,
+                  TxtTokLmdb, itm_collate, itm_ot_collate, mlm_collate,
+                  mrc_collate, mrfr_collate)
 from model.pretrain import UniterForPretraining
 from optim import get_lr_sched
 from optim.misc import build_optimizer
-
-from utils.logger import LOGGER, TB_LOGGER, RunningMeter, add_log_to_file
-from utils.distributed import (all_reduce_and_rescale_tensors, all_gather_list,
+from utils.const import BUCKET_SIZE, IMG_DIM, IMG_LABEL_DIM
+from utils.distributed import (all_gather_list, all_reduce_and_rescale_tensors,
                                broadcast_tensors)
-from utils.save import ModelSaver, save_training_meta
+from utils.logger import LOGGER, TB_LOGGER, RunningMeter, add_log_to_file
 from utils.misc import NoOp, parse_with_config, set_dropout, set_random_seed
-from utils.const import IMG_DIM, IMG_LABEL_DIM, BUCKET_SIZE
+from utils.save import ModelSaver, save_training_meta
 
 
 def build_dataloader(dataset, collate_fn, is_train, opts):
@@ -200,8 +195,8 @@ def main(opts):
     all_dbs = [db for datasets in [opts.train_datasets, opts.val_datasets]
                for dset in datasets for db in dset['db']]
 
-    tokenizer = json.load(open(f'{all_dbs[0]}/meta.json'))['bert']
-    assert all(tokenizer == json.load(open(f'{db}/meta.json'))['bert']
+    tokenizer = json.load(open(os.path.join(all_dbs[0], "meta.json")))['bert']
+    assert all(tokenizer == json.load(open(os.path.join(all_dbs[0], 'meta.json')))['bert']
                for db in all_dbs)
 
     # build data loaders

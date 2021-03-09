@@ -12,13 +12,13 @@ import multiprocessing as mp
 import os
 from os.path import basename, exists
 
-from cytoolz import curry
-import numpy as np
-from tqdm import tqdm
 import lmdb
-
 import msgpack
 import msgpack_numpy
+import numpy as np
+from cytoolz import curry
+from tqdm import tqdm
+
 msgpack_numpy.patch()
 
 
@@ -28,24 +28,30 @@ def _compute_nbb(img_dump, conf_th, max_bb, min_bb, num_bb):
     return int(num_bb)
 
 
-def _normalize_bb(bbox, width, height):
-    bbox_x = np.array([bbox[:, 0], bbox[:, 0] + bbox[:, 2], bbox[:, 2]]) / width
-    bbox_y = np.array([bbox[:, 1], bbox[:, 1] + bbox[:, 3], bbox[:, 3]]) / height
+def _normalize_bb(bbox, width, height, format='xywh'):
+    if format == 'xyxy':
+        bbox_x = np.array([bbox[:, 0], bbox[:, 2], bbox[:, 2] - bbox[:, 0]]) / width
+        bbox_y = np.array([bbox[:, 1], bbox[:, 3], bbox[:, 3] - bbox[:, 1]]) / height
+    if format == 'xywh':
+        bbox_x = np.array([bbox[:, 0], bbox[:, 0] + bbox[:, 2], bbox[:, 2]]) / width
+        bbox_y = np.array([bbox[:, 1], bbox[:, 1] + bbox[:, 3], bbox[:, 3]]) / height
     return np.vstack((bbox_x[0], bbox_y[0],
                       bbox_x[1], bbox_y[1],
                       bbox_x[2], bbox_y[2])).T
 
+
 @curry
 def load_npy(conf_th, max_bb, min_bb, num_bb, fname, keep_all=False):
     try:
-        img_dump = np.load(fname, allow_pickle=True)
+        img_dump = np.load(fname, allow_pickle=True).item()
         if keep_all:
             nbb = None
         else:
             nbb = _compute_nbb(img_dump['cls_prob'], conf_th, max_bb, min_bb, num_bb)
 
         dump = {}
-        dump['norm_bb'] = _normalize_bb(img_dump['bbox'], img_dump['width'], img_dump['height'])
+        dump['norm_bb'] = _normalize_bb(
+            img_dump['bbox'], img_dump['image_width'], img_dump['image_height'])
 
         for key, arr in img_dump.items():
             if type(arr) != np.ndarray:
@@ -66,6 +72,21 @@ def load_npy(conf_th, max_bb, min_bb, num_bb, fname, keep_all=False):
 
     name = basename(fname)
     return name, dump, nbb
+
+
+@curry
+def load_clip_npy(bboxes, fname):
+    try:
+        dump = {}
+        dump['features'] = np.load(fname, allow_pickle=True)
+        dump['norm_bb'] = bboxes
+        dump['conf'] = np.ones((len(dump['features']), 1))
+    except Exception as e:
+        print(f'corrupted file {fname}', e)
+        dump = {}
+
+    name = basename(fname)
+    return name, dump, None
 
 
 @curry
@@ -128,8 +149,17 @@ def main(opts):
     env = lmdb.open(f'{opts.output}/{split}/{db_name}', map_size=1024**4)
     txn = env.begin(write=True)
     files = glob.glob(f'{opts.img_dir}/*.npy')
-    load = load_npz(opts.conf_th, opts.max_bb, opts.min_bb, opts.num_bb,
-                    keep_all=opts.keep_all)
+    if opts.feature_format == 'npy_patches':
+        info = np.load(opts.info_file, allow_pickle=True).item()
+        bboxes = _normalize_bb(info['bbox'], info['image_width'],
+                               info['image_height'], format='xyxy')
+        load = load_clip_npy(bboxes)
+    elif opts.feature_format == 'npy':
+        load = load_npy(opts.conf_th, opts.max_bb, opts.min_bb, opts.num_bb,
+                        keep_all=opts.keep_all)
+    elif opts.feature_format == 'npz':
+        load = load_npz(opts.conf_th, opts.max_bb, opts.min_bb, opts.num_bb,
+                        keep_all=opts.keep_all)
     name2nbb = {}
     with mp.Pool(opts.nproc) as pool, tqdm(total=len(files)) as pbar:
         for i, (fname, features, nbb) in enumerate(
@@ -169,6 +199,8 @@ if __name__ == '__main__':
                         help='compress the tensors')
     parser.add_argument('--keep_all', action='store_true',
                         help='keep all features, overrides all following args')
+    parser.add_argument('--feature_format', choices=['npy', 'npz', 'npy_patches'],
+                        help='format of the feature file/associated metadata')
     parser.add_argument('--conf_th', type=float, default=0.2,
                         help='threshold for dynamic bounding boxes '
                              '(-1 for fixed)')
@@ -178,5 +210,7 @@ if __name__ == '__main__':
                         help='min number of bounding boxes')
     parser.add_argument('--num_bb', type=int, default=100,
                         help='number of bounding boxes (fixed)')
+    parser.add_argument('--info_file', type=str, default=None,
+                        help='metadata file for all images. used for patches')
     args = parser.parse_args()
     main(args)
